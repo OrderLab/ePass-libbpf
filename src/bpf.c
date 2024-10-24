@@ -265,6 +265,7 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 	if (prog_name && kernel_supports(NULL, FEAT_PROG_NAME))
 		libbpf_strlcpy(attr.prog_name, prog_name, sizeof(attr.prog_name));
 	attr.license = ptr_to_u64(license);
+	attr.bpf_ir_opts = ptr_to_u64(OPTS_GET(opts, ir_opts, NULL));
 
 	if (insn_cnt > UINT_MAX)
 		return libbpf_err(-E2BIG);

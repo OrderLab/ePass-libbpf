@@ -61,6 +61,12 @@ LIBBPF_API int bpf_map_create(enum bpf_map_type map_type,
 			      __u32 max_entries,
 			      const struct bpf_map_create_opts *opts);
 
+struct bpf_ir_raw_opts {
+	__u32 enable_bpf_ir;
+	char pass_opt[300];
+	char global_opt[200];
+};
+
 struct bpf_prog_load_opts {
 	size_t sz; /* size of this struct for forward/backward compatibility */
 
@@ -102,6 +108,7 @@ struct bpf_prog_load_opts {
 	 * If kernel doesn't support this feature, log_size is left unchanged.
 	 */
 	__u32 log_true_size;
+	struct bpf_ir_raw_opts *ir_opts;
 	size_t :0;
 };
 #define bpf_prog_load_opts__last_field log_true_size

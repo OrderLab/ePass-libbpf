@@ -936,7 +936,7 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 			const char *license, struct bpf_insn *insns, size_t insn_cnt,
 			struct bpf_prog_load_opts *load_attr, int prog_idx)
 {
-	int prog_load_attr, license_off, insns_off, func_info, line_info, core_relos;
+	int prog_load_attr, license_off, insns_off, func_info, line_info, core_relos, ir_opts_off;
 	int attr_size = offsetofend(union bpf_attr, core_relo_rec_size);
 	union bpf_attr attr;
 
@@ -947,6 +947,8 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 	license_off = add_data(gen, license, strlen(license) + 1);
 	/* add insns to blob of bytes */
 	insns_off = add_data(gen, insns, insn_cnt * sizeof(struct bpf_insn));
+	
+	ir_opts_off = add_data(gen, load_attr->ir_opts, sizeof(struct bpf_ir_raw_opts));
 
 	attr.prog_type = prog_type;
 	attr.expected_attach_type = load_attr->expected_attach_type;
@@ -979,6 +981,8 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 
 	/* populate union bpf_attr with a pointer to instructions */
 	emit_rel_store(gen, attr_field(prog_load_attr, insns), insns_off);
+
+	emit_rel_store(gen, attr_field(prog_load_attr, ir_opts), ir_opts_off);
 
 	/* populate union bpf_attr with a pointer to func_info */
 	emit_rel_store(gen, attr_field(prog_load_attr, func_info), func_info);
