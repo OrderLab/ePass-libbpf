@@ -6840,6 +6840,9 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	load_attr.log_level = log_level;
 	load_attr.prog_flags = prog->prog_flags;
 	load_attr.fd_array = obj->fd_array;
+	load_attr.ir_opts->enable_bpf_ir = false;
+	strcpy(load_attr.ir_opts->global_opt, "asdsasa");
+	strcpy(load_attr.ir_opts->pass_opt, "4newl53");
 
 	/* adjust load_attr if sec_def provides custom preload callback */
 	if (prog->sec_def && prog->sec_def->prog_prepare_load_fn) {

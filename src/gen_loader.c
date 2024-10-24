@@ -982,7 +982,7 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 	/* populate union bpf_attr with a pointer to instructions */
 	emit_rel_store(gen, attr_field(prog_load_attr, insns), insns_off);
 
-	emit_rel_store(gen, attr_field(prog_load_attr, ir_opts), ir_opts_off);
+	emit_rel_store(gen, attr_field(prog_load_attr, bpf_ir_opts), ir_opts_off);
 
 	/* populate union bpf_attr with a pointer to func_info */
 	emit_rel_store(gen, attr_field(prog_load_attr, func_info), func_info);
