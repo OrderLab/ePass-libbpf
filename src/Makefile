@@ -9,8 +9,8 @@ else
 endif
 
 LIBBPF_MAJOR_VERSION := 1
-LIBBPF_MINOR_VERSION := 5
-LIBBPF_PATCH_VERSION := 0
+LIBBPF_MINOR_VERSION := 2
+LIBBPF_PATCH_VERSION := 3
 LIBBPF_VERSION := $(LIBBPF_MAJOR_VERSION).$(LIBBPF_MINOR_VERSION).$(LIBBPF_PATCH_VERSION)
 LIBBPF_MAJMIN_VERSION := $(LIBBPF_MAJOR_VERSION).$(LIBBPF_MINOR_VERSION).0
 LIBBPF_MAP_VERSION := $(shell grep -oE '^LIBBPF_([0-9.]+)' libbpf.map | sort -rV | head -n1 | cut -d'_' -f2)
@@ -35,10 +35,7 @@ ALL_CFLAGS := $(INCLUDES)
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 
 CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89
-ALL_CFLAGS += $(CFLAGS) 						\
-	      -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64		\
-	      -Wno-unknown-warning-option -Wno-format-overflow		\
-	      $(EXTRA_CFLAGS)
+ALL_CFLAGS += $(CFLAGS) -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 $(EXTRA_CFLAGS)
 ALL_LDFLAGS += $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 ifdef NO_PKG_CONFIG
@@ -55,7 +52,7 @@ STATIC_OBJDIR := $(OBJDIR)/staticobjs
 OBJS := bpf.o btf.o libbpf.o libbpf_errno.o netlink.o \
 	nlattr.o str_error.o libbpf_probes.o bpf_prog_linfo.o \
 	btf_dump.o hashmap.o ringbuf.o strset.o linker.o gen_loader.o \
-	relo_core.o usdt.o zip.o elf.o features.o btf_iter.o btf_relocate.o
+	relo_core.o usdt.o zip.o
 SHARED_OBJS := $(addprefix $(SHARED_OBJDIR)/,$(OBJS))
 STATIC_OBJS := $(addprefix $(STATIC_OBJDIR)/,$(OBJS))
 
@@ -119,13 +116,13 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
 		  -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
 		  $^ $(ALL_LDFLAGS) -o $@
 
-$(OBJDIR)/libbpf.pc: force | $(OBJDIR)
+$(OBJDIR)/libbpf.pc: force
 	$(Q)sed -e "s|@PREFIX@|$(PREFIX)|" \
 		-e "s|@LIBDIR@|$(LIBDIR_PC)|" \
 		-e "s|@VERSION@|$(LIBBPF_VERSION)|" \
 		< libbpf.pc.template > $@
 
-$(OBJDIR) $(STATIC_OBJDIR) $(SHARED_OBJDIR):
+$(STATIC_OBJDIR) $(SHARED_OBJDIR):
 	$(call msg,MKDIR,$@)
 	$(Q)mkdir -p $@
 

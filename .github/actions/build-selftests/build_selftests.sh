@@ -10,21 +10,22 @@ foldable start prepare_selftests "Building selftests"
 
 LIBBPF_PATH="${REPO_ROOT}"
 
-llvm_latest_version() {
-	echo "19"
+llvm_default_version() {
+	echo "16"
 }
 
+llvm_latest_version() {
+	echo "17"
+}
+
+LLVM_VERSION=$(llvm_default_version)
 if [[ "${LLVM_VERSION}" == $(llvm_latest_version) ]]; then
 	REPO_DISTRO_SUFFIX=""
 else
 	REPO_DISTRO_SUFFIX="-${LLVM_VERSION}"
 fi
 
-DISTRIB_CODENAME="noble"
-test -f /etc/lsb-release && . /etc/lsb-release
-echo "${DISTRIB_CODENAME}"
-
-echo "deb https://apt.llvm.org/${DISTRIB_CODENAME}/ llvm-toolchain-${DISTRIB_CODENAME}${REPO_DISTRO_SUFFIX} main" \
+echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal${REPO_DISTRO_SUFFIX} main" \
 	| sudo tee /etc/apt/sources.list.d/llvm.list
 
 PREPARE_SELFTESTS_SCRIPT=${THISDIR}/prepare_selftests-${KERNEL}.sh
@@ -39,7 +40,6 @@ else
 fi
 
 cd ${REPO_ROOT}/${REPO_PATH}
-make headers
 make \
 	CLANG=clang-${LLVM_VERSION} \
 	LLC=llc-${LLVM_VERSION} \
