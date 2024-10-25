@@ -1451,7 +1451,6 @@ union bpf_attr {
 		 * truncated), or smaller (if log buffer wasn't filled completely).
 		 */
 		__u32 log_true_size;
-		// __aligned_u64 bpf_ir_opts; /* ePass bpf ir options */
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
