@@ -1,4 +1,4 @@
-#include "bpf/libbpf.h"
+#include "../src/libbpf.h"
 
 int main(int argn, char **argv){
 
@@ -13,7 +13,7 @@ int main(int argn, char **argv){
 	// }
 	// size_t sz = bpf_program__insn_cnt(prog);
 
-    bpf_object__load(obj);
+    bpf_object__load(obj, LIBBPF_PROGLD_OPT_EPASS_KERNEL, "asd", "fddffd");
 
 	bpf_object__close(obj);
 }

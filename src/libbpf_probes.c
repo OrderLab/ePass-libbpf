@@ -185,7 +185,7 @@ static int probe_prog_load(enum bpf_prog_type prog_type,
 		return -EOPNOTSUPP;
 	}
 
-	fd = bpf_prog_load(prog_type, NULL, "GPL", insns, insns_cnt, &opts);
+	fd = bpf_prog_load(prog_type, NULL, "GPL", insns, insns_cnt, &opts, 0, NULL, NULL);
 	err = -errno;
 	if (fd >= 0)
 		close(fd);
