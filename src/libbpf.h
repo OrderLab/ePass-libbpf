@@ -49,12 +49,6 @@ enum libbpf_errno {
     __LIBBPF_ERRNO__END,
 };
 
-enum libbpf_progld_opts {
-    LIBBPF_PROGLD_OPT_NONE,             // Deafult, do not run ePass
-    LIBBPF_PROGLD_OPT_EPASS_USERSPACE,  // Run ePass in userspace
-    LIBBPF_PROGLD_OPT_EPASS_KERNEL,     // Run ePass in kernel
-};
-
 LIBBPF_API int libbpf_strerror(int err, char *buf, size_t size);
 
 /**
@@ -230,7 +224,7 @@ LIBBPF_API struct bpf_object *bpf_object__open_mem(const void *obj_buf, size_t o
  * @return 0, on success; negative error code, otherwise, error code is
  * stored in errno
  */
-LIBBPF_API int bpf_object__load(struct bpf_object *obj, enum libbpf_progld_opts progld_opts,
+LIBBPF_API int bpf_object__load(struct bpf_object *obj, __u32 enable_epass,
                                 const char *epass_opt, const char *epass_passopt);
 
 /**

@@ -6465,7 +6465,7 @@ static void fixup_verifier_log(struct bpf_program *prog, char *buf, size_t buf_s
 static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog,
                                 struct bpf_insn *insns, int insns_cnt, const char *license,
                                 __u32 kern_version, int *prog_fd,
-                                enum libbpf_progld_opts progld_opts, const char *epass_opt,
+                                __u32 enable_epass, const char *epass_opt,
                                 const char *epass_passopt) {
     LIBBPF_OPTS(bpf_prog_load_opts, load_attr);
     const char *prog_name = NULL;
@@ -6523,14 +6523,6 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
         insns     = prog->insns;
         insns_cnt = prog->insns_cnt;
     }
-    __u32 enable_epass = 0;
-    if (progld_opts == LIBBPF_PROGLD_OPT_EPASS_KERNEL) {
-        enable_epass = 1;
-    }
-    if (progld_opts == LIBBPF_PROGLD_OPT_EPASS_USERSPACE) {
-		// TODO: reload the program
-    }
-
     if (obj->gen_loader) {
         bpf_gen__prog_load(obj->gen_loader, prog->type, prog->name, license, insns, insns_cnt,
                            &load_attr, prog - obj->programs, enable_epass, epass_opt,
@@ -6870,7 +6862,7 @@ static int bpf_program_record_relos(struct bpf_program *prog) {
 }
 
 static int bpf_object__load_progs(struct bpf_object *obj, int log_level,
-                                  enum libbpf_progld_opts progld_opts, const char *epass_opt,
+                                  __u32 enable_epass, const char *epass_opt,
                                   const char *epass_passopt) {
     struct bpf_program *prog;
     size_t              i;
@@ -6897,7 +6889,7 @@ static int bpf_object__load_progs(struct bpf_object *obj, int log_level,
             bpf_program_record_relos(prog);
 
         err = bpf_object_load_prog(obj, prog, prog->insns, prog->insns_cnt, obj->license,
-                                   obj->kern_version, &prog->fd, progld_opts, epass_opt,
+                                   obj->kern_version, &prog->fd, enable_epass, epass_opt,
                                    epass_passopt);
         if (err) {
             pr_warn("prog '%s': failed to load: %d\n", prog->name, err);
@@ -7456,7 +7448,7 @@ static int bpf_object_prepare_struct_ops(struct bpf_object *obj) {
 }
 
 static int bpf_object_load(struct bpf_object *obj, int extra_log_level, const char *target_btf_path,
-                           enum libbpf_progld_opts progld_opts, const char *epass_opt,
+                           __u32 enable_epass, const char *epass_opt,
                            const char *epass_passopt) {
     int err, i;
 
@@ -7480,7 +7472,7 @@ static int bpf_object_load(struct bpf_object *obj, int extra_log_level, const ch
     err = err ?: bpf_object__create_maps(obj);
     err = err ?: bpf_object__relocate(obj, obj->btf_custom_path ?: target_btf_path);
     err =
-        err ?: bpf_object__load_progs(obj, extra_log_level, progld_opts, epass_opt, epass_passopt);
+        err ?: bpf_object__load_progs(obj, extra_log_level, enable_epass, epass_opt, epass_passopt);
     err = err ?: bpf_object_init_prog_arrays(obj);
     err = err ?: bpf_object_prepare_struct_ops(obj);
 
@@ -7526,9 +7518,9 @@ out:
     return libbpf_err(err);
 }
 
-int bpf_object__load(struct bpf_object *obj, enum libbpf_progld_opts progld_opts,
+int bpf_object__load(struct bpf_object *obj, __u32 enable_epass,
                      const char *epass_opt, const char *epass_passopt) {
-    return bpf_object_load(obj, 0, NULL, progld_opts, epass_opt, epass_passopt);
+    return bpf_object_load(obj, 0, NULL, enable_epass, epass_opt, epass_passopt);
 }
 
 static int make_parent_dir(const char *path) {
@@ -12002,7 +11994,7 @@ void bpf_object__destroy_subskeleton(struct bpf_object_subskeleton *s) {
 int bpf_object__load_skeleton(struct bpf_object_skeleton *s) {
     int i, err;
 
-    err = bpf_object__load(*s->obj, LIBBPF_PROGLD_OPT_NONE, NULL, NULL);
+    err = bpf_object__load(*s->obj, 0, NULL, NULL);
     if (err) {
         pr_warn("failed to load BPF skeleton '%s': %d\n", s->name, err);
         return libbpf_err(err);
