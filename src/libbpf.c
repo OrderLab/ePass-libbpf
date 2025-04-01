@@ -7578,8 +7578,12 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	/* Running ePass */
 	const char* enable_epass = getenv("LIBBPF_ENABLE_EPASS");
 	if (enable_epass && strcmp(enable_epass, "1") == 0) {
-		const char* gopts = getenv("LIBBPF_EPASS_GOPTS");
-		const char* popts = getenv("LIBBPF_EPASS_POPTS");
+		pr_info("Running ePass on program '%s'\n", prog->name);
+		const char* gopt = getenv("LIBBPF_EPASS_GOPT");
+		const char* popt = getenv("LIBBPF_EPASS_POPT");
+		if (gopt) {
+			pr_info("ePass gopt: %s\n", gopt);
+		}
 		struct builtin_pass_cfg passes[] = {
 			bpf_ir_kern_insn_counter_pass,
 			bpf_ir_kern_optimization_pass
@@ -7595,14 +7599,23 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 			return -ENOMEM;
 		}
 
-		int err = bpf_ir_init_opts(env, gopts, popts);
+		int err = bpf_ir_init_opts(env, gopt, popt);
 		if (err) {
 			bpf_ir_free_env(env);
 			return err;
 		}
 		enable_builtin(env);
 		bpf_ir_autorun(env);
+		if (env->err) {
+			goto epass_end;
+		}
 
+		// Copy instructions to prog
+		bpf_program__set_insns(prog, env->insns, env->insn_cnt);
+
+		insns = prog->insns;
+		insns_cnt = prog->insns_cnt;
+epass_end:
 		bpf_ir_free_opts(env);
 		bpf_ir_free_env(env);
 	}

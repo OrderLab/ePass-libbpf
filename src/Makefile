@@ -37,7 +37,7 @@ ALL_CFLAGS := $(INCLUDES)
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 
 EPASS_LIBDIR := $(TOPDIR)/ePass/core/build
-CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89 -L$(EPASS_LIBDIR)
+CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89
 ALL_CFLAGS += $(CFLAGS) 						\
 	      -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -DLIBBPF		\
 	      -Wno-unknown-warning-option -Wno-format-overflow		\
@@ -54,7 +54,7 @@ else
 	ALL_LDFLAGS += $(shell $(PKG_CONFIG) --libs libelf zlib)
 endif
 
-ALL_LDFLAGS += "-lepass"
+ALL_LDFLAGS += "-L$(EPASS_LIBDIR) -lepass"
 
 OBJDIR ?= .
 SHARED_OBJDIR := $(OBJDIR)/sharedobjs
@@ -125,6 +125,7 @@ $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
 	$(call msg,CC,$@)
 	$(Q)$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		  -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
+		  -Wl,--whole-archive $(EPASS_LIBDIR)/libepass.a -Wl,--no-whole-archive\
 		  $^ $(ALL_LDFLAGS) -o $@
 
 $(OBJDIR)/libbpf.pc: force | $(OBJDIR)
