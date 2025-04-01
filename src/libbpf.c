@@ -7615,6 +7615,8 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
+
+		load_attr.line_info_cnt = 0;
 epass_end:
 		bpf_ir_free_opts(env);
 		bpf_ir_free_env(env);
