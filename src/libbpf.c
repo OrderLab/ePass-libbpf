@@ -55,6 +55,28 @@
 #include "hashmap.h"
 #include "bpf_gen_internal.h"
 #include "zip.h"
+#include "linux/bpf_ir.h"
+
+extern const struct builtin_pass_cfg bpf_ir_kern_insn_counter_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_optimization_pass;
+
+static const struct function_pass pre_passes_def[] = {
+	DEF_FUNC_PASS(remove_trivial_phi, "remove_trivial_phi", true),
+};
+
+static struct function_pass post_passes_def[] = {
+	DEF_FUNC_PASS(bpf_ir_div_by_zero, "div_by_zero", false),
+	DEF_FUNC_PASS(msan, "msan", false),
+	DEF_FUNC_PASS(insn_counter, "insn_counter", false),
+};
+
+const struct function_pass *pre_passes = pre_passes_def;
+const struct function_pass *post_passes = post_passes_def;
+
+const size_t post_passes_cnt =
+	sizeof(post_passes_def) / sizeof(post_passes_def[0]);
+const size_t pre_passes_cnt =
+	sizeof(pre_passes_def) / sizeof(pre_passes_def[0]);
 
 #ifndef BPF_FS_MAGIC
 #define BPF_FS_MAGIC		0xcafe4a11
@@ -7466,6 +7488,16 @@ static int libbpf_prepare_prog_load(struct bpf_program *prog,
 
 static void fixup_verifier_log(struct bpf_program *prog, char *buf, size_t buf_sz);
 
+// Enable all builtin passes specified by enable_cfg
+static void enable_builtin(struct bpf_ir_env *env)
+{
+	size_t i;
+	for (i = 0; i < env->opts.builtin_pass_cfg_num; ++i) {
+		if (env->opts.builtin_pass_cfg[i].enable_cfg) {
+			env->opts.builtin_pass_cfg[i].enable = true;
+		}
+	}
+}
 static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog,
 				struct bpf_insn *insns, int insns_cnt,
 				const char *license, __u32 kern_version, int *prog_fd)
@@ -7541,6 +7573,38 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		}
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
+	}
+
+	/* Running ePass */
+	const char* enable_epass = getenv("LIBBPF_ENABLE_EPASS");
+	if (enable_epass && strcmp(enable_epass, "1") == 0) {
+		const char* gopts = getenv("LIBBPF_EPASS_GOPTS");
+		const char* popts = getenv("LIBBPF_EPASS_POPTS");
+		struct builtin_pass_cfg passes[] = {
+			bpf_ir_kern_insn_counter_pass,
+			bpf_ir_kern_optimization_pass
+		};
+		struct bpf_ir_opts opts = bpf_ir_default_opts();
+		opts.custom_pass_num = 0;
+		opts.custom_passes = NULL;
+		opts.builtin_pass_cfg_num = sizeof(passes) / sizeof(passes[0]);
+		opts.builtin_pass_cfg = passes;
+		struct bpf_ir_env *env = bpf_ir_init_env(opts, insns, insns_cnt);
+
+		if (!env) {
+			return -ENOMEM;
+		}
+
+		int err = bpf_ir_init_opts(env, gopts, popts);
+		if (err) {
+			bpf_ir_free_env(env);
+			return err;
+		}
+		enable_builtin(env);
+		bpf_ir_autorun(env);
+
+		bpf_ir_free_opts(env);
+		bpf_ir_free_env(env);
 	}
 
 	if (obj->gen_loader) {

@@ -30,14 +30,16 @@ PKG_CONFIG ?= pkg-config
 
 TOPDIR = ..
 
-INCLUDES := -I. -I$(TOPDIR)/include -I$(TOPDIR)/include/uapi
+EPASS_INCLUDE := $(TOPDIR)/ePass/core/include
+INCLUDES := -I. -I$(TOPDIR)/include -I$(TOPDIR)/include/uapi -I$(EPASS_INCLUDE)
 ALL_CFLAGS := $(INCLUDES)
 
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 
-CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89
+EPASS_LIBDIR := $(TOPDIR)/ePass/core/build
+CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89 -L$(EPASS_LIBDIR)
 ALL_CFLAGS += $(CFLAGS) 						\
-	      -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64		\
+	      -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -DLIBBPF		\
 	      -Wno-unknown-warning-option -Wno-format-overflow		\
 	      $(EXTRA_CFLAGS)
 ALL_LDFLAGS += $(LDFLAGS) $(EXTRA_LDFLAGS)
@@ -52,9 +54,12 @@ else
 	ALL_LDFLAGS += $(shell $(PKG_CONFIG) --libs libelf zlib)
 endif
 
+ALL_LDFLAGS += "-lepass"
+
 OBJDIR ?= .
 SHARED_OBJDIR := $(OBJDIR)/sharedobjs
 STATIC_OBJDIR := $(OBJDIR)/staticobjs
+
 OBJS := bpf.o btf.o libbpf.o libbpf_errno.o netlink.o \
 	nlattr.o str_error.o libbpf_probes.o bpf_prog_linfo.o \
 	btf_dump.o hashmap.o ringbuf.o strset.o linker.o gen_loader.o \
