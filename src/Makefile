@@ -112,7 +112,7 @@ TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
 EPASS_OBJS = $(wildcard $(EPASS_LIBDIR)/*.o)
 
-all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE) epass_objs
+all: epass_objs $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
 epass_objs:
 	make -C $(EPASS_SRCDIR) buildobj
