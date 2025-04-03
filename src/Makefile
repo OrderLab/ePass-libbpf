@@ -110,7 +110,7 @@ UAPIDIR ?= $(PREFIX)/include
 
 TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
-EPASS_OBJS := $(shell find $(EPASS_LIBDIR)/CMakeFiles/epass.dir -type f -name "*.o")
+EPASS_OBJS = $(shell find $(EPASS_LIBDIR)/CMakeFiles/epass.dir -type f -name "*.o")
 
 all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
