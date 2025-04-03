@@ -36,7 +36,10 @@ ALL_CFLAGS := $(INCLUDES)
 
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 
+EPASS_SRCDIR := $(TOPDIR)/ePass/core
+
 EPASS_LIBDIR := $(TOPDIR)/ePass/core/build
+
 CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89
 ALL_CFLAGS += $(CFLAGS) 						\
 	      -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -DLIBBPF		\
@@ -53,8 +56,6 @@ else
 	ALL_CFLAGS += $(shell $(PKG_CONFIG) --cflags libelf zlib)
 	ALL_LDFLAGS += $(shell $(PKG_CONFIG) --libs libelf zlib)
 endif
-
-ALL_LDFLAGS += "-L$(EPASS_LIBDIR) -lepass"
 
 OBJDIR ?= .
 SHARED_OBJDIR := $(OBJDIR)/sharedobjs
@@ -111,9 +112,10 @@ TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
 all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
-$(OBJDIR)/libbpf.a: $(STATIC_OBJS)
+$(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_LIBDIR)/libepass.a
 	$(call msg,AR,$@)
-	$(Q)$(AR) rcs $@ $^
+	cd staticobjs/; ar x ../$(EPASS_LIBDIR)/libepass.a
+	$(Q)$(AR) rcs $@ staticobjs/*.o
 
 $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 	$(Q)ln -sf $(^F) $@
@@ -121,7 +123,10 @@ $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION)
 	$(Q)ln -sf $(^F) $@
 
-$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
+$(EPASS_LIBDIR)/libepass.a:
+	make -C $(EPASS_SRCDIR) dist
+
+$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS) $(EPASS_LIBDIR)/libepass.a
 	$(call msg,CC,$@)
 	$(Q)$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		  -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
