@@ -112,12 +112,12 @@ TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
 EPASS_OBJS = $(wildcard $(EPASS_LIBDIR)/*.o)
 
-all: epass_objs $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
+all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
 epass_objs:
 	make -C $(EPASS_SRCDIR) buildobj
 
-$(OBJDIR)/libbpf.a: $(STATIC_OBJS)
+$(OBJDIR)/libbpf.a: $(STATIC_OBJS) epass_objs
 	$(call msg,AR,$@)
 	$(Q)$(AR) rcs $@ $(STATIC_OBJS) $(EPASS_OBJS)
 
@@ -127,11 +127,11 @@ $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION)
 	$(Q)ln -sf $(^F) $@
 
-$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
+$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS) epass_objs
 	$(call msg,CC,$@)
 	$(Q)$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		  -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
-		  $^ $(EPASS_OBJS) $(ALL_LDFLAGS) -o $@
+		  $(SHARED_OBJS) $(EPASS_OBJS) $(ALL_LDFLAGS) -o $@
 
 $(OBJDIR)/libbpf.pc: force | $(OBJDIR)
 	$(Q)sed -e "s|@PREFIX@|$(PREFIX)|" \
