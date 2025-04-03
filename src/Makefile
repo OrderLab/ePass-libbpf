@@ -110,11 +110,14 @@ UAPIDIR ?= $(PREFIX)/include
 
 TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
-EPASS_OBJS = $(shell find $(EPASS_LIBDIR)/CMakeFiles/epass.dir -type f -name "*.o")
+EPASS_OBJS = $(wildcard $(EPASS_LIBDIR)/*.o)
 
-all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
+all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE) epass_objs
 
-$(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_LIBDIR)/libepass.a
+epass_objs:
+	make -C $(EPASS_SRCDIR) buildobj
+
+$(OBJDIR)/libbpf.a: $(STATIC_OBJS)
 	$(call msg,AR,$@)
 	$(Q)$(AR) rcs $@ $(STATIC_OBJS) $(EPASS_OBJS)
 
@@ -124,15 +127,11 @@ $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION)
 	$(Q)ln -sf $(^F) $@
 
-$(EPASS_LIBDIR)/libepass.a:
-	make -C $(EPASS_SRCDIR) dist
-
-$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS) $(EPASS_LIBDIR)/libepass.a
+$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS)
 	$(call msg,CC,$@)
 	$(Q)$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		  -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
-		  -Wl,--whole-archive $(EPASS_LIBDIR)/libepass.a -Wl,--no-whole-archive\
-		  $^ $(ALL_LDFLAGS) -o $@
+		  $^ $(EPASS_OBJS) $(ALL_LDFLAGS) -o $@
 
 $(OBJDIR)/libbpf.pc: force | $(OBJDIR)
 	$(Q)sed -e "s|@PREFIX@|$(PREFIX)|" \
