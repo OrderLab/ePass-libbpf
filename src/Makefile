@@ -110,11 +110,13 @@ UAPIDIR ?= $(PREFIX)/include
 
 TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
+EPASS_OBJS := $(shell find $(EPASS_LIBDIR)/CMakeFiles/epass.dir -type f -name "*.o")
+
 all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
 $(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_LIBDIR)/libepass.a
 	$(call msg,AR,$@)
-	$(Q)$(AR) rcs $@ $(STATIC_OBJS) $(EPASS_LIBDIR)/CMakeFiles/epass.dir/**.o
+	$(Q)$(AR) rcs $@ $(STATIC_OBJS) $(EPASS_OBJS)
 
 $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 	$(Q)ln -sf $(^F) $@
