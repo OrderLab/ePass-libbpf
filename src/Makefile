@@ -114,8 +114,7 @@ all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
 $(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_LIBDIR)/libepass.a
 	$(call msg,AR,$@)
-	cd staticobjs/; ar x ../$(EPASS_LIBDIR)/libepass.a
-	$(Q)$(AR) rcs $@ staticobjs/*.o
+	$(Q)$(AR) rcs $@ $(STATIC_OBJS) $(EPASS_LIBDIR)/CMakeFiles/epass.dir/**.o
 
 $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 	$(Q)ln -sf $(^F) $@
