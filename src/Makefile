@@ -184,7 +184,7 @@ install_pkgconfig: $(PC_FILE)
 
 clean:
 	$(call msg,CLEAN)
-	$(Q)rm -rf *.o *.a *.so *.so.* *.pc $(SHARED_OBJDIR) $(STATIC_OBJDIR)
+	$(Q)rm -rf *.o *.a *.so *.so.* *.pc $(SHARED_OBJDIR) $(STATIC_OBJDIR) $(EPASS_LIBDIR)
 
 .PHONY: cscope tags force
 cscope:
