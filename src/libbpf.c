@@ -7625,7 +7625,7 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
 
-		// load_attr.line_info_cnt = 0;
+		load_attr.line_info_cnt = 0;
 epass_end:
 		bpf_ir_free_opts(env);
 		bpf_ir_free_env(env);
@@ -7701,7 +7701,7 @@ retry_load:
 	}
 
 	if (!is_original){
-		pr_debug("Reloading using original instructions\n");
+		printf("Reloading using original instructions\n");
 		// Change to original insns
 		bpf_program__set_insns(prog, backup_insns, backup_insns_cnt);
 		insns = prog->insns;
