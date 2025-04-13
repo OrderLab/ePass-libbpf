@@ -7707,6 +7707,19 @@ retry_load:
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
 		is_original = true;
+		if (log_level == 0) {
+			log_level = 1;
+		}
+		/* post-process verifier log to improve error descriptions */
+		fixup_verifier_log(prog, log_buf, log_buf_size);
+
+		pr_warn("prog '%s': BPF program load failed: %s\n", prog->name, errstr(errno));
+		pr_perm_msg(ret);
+
+		if (own_log_buf && log_buf && log_buf[0] != '\0') {
+			pr_warn("prog '%s': -- BEGIN PROG LOAD LOG --\n%s-- END PROG LOAD LOG --\n",
+				prog->name, log_buf);
+		}
 		goto retry_load;
 	}
 
