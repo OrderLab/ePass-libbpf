@@ -7587,10 +7587,16 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	/* Running ePass */
 	const char* enable_epass = getenv("LIBBPF_ENABLE_EPASS");
 	const char* enable_autoreload = getenv("LIBBPF_ENABLE_AUTORELOAD");
+	const char* loglevel_s = getenv("LIBBPF_LOGLEVEL");
 	bool autoreload = false;
 	if (enable_autoreload && strcmp(enable_autoreload, "1") == 0) {
 		autoreload = true;
 		pr_info("Running autoreload on program '%s'\n", prog->name);
+	}
+	if (loglevel_s) {
+		log_level = strtoul(loglevel_s, NULL, 0);
+		if (log_level > 2)
+			log_level = 2;
 	}
 	if (enable_epass && strcmp(enable_epass, "1") == 0) {
 		pr_info("Running ePass on program '%s'\n", prog->name);
