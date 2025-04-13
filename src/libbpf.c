@@ -7586,6 +7586,12 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 
 	/* Running ePass */
 	const char* enable_epass = getenv("LIBBPF_ENABLE_EPASS");
+	const char* enable_autoreload = getenv("LIBBPF_ENABLE_AUTORELOAD");
+	bool autoreload = false;
+	if (enable_autoreload && strcmp(enable_autoreload, "1") == 0) {
+		autoreload = true;
+		pr_info("Running autoreload on program '%s'\n", prog->name);
+	}
 	if (enable_epass && strcmp(enable_epass, "1") == 0) {
 		pr_info("Running ePass on program '%s'\n", prog->name);
 		const char* gopt = getenv("LIBBPF_EPASS_GOPT");
@@ -7700,26 +7706,13 @@ retry_load:
 		goto out;
 	}
 
-	if (!is_original){
+	if (!is_original && autoreload){
 		printf("Reloading using original instructions\n");
 		// Change to original insns
 		bpf_program__set_insns(prog, backup_insns, backup_insns_cnt);
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
 		is_original = true;
-		if (log_level == 0) {
-			log_level = 1;
-		}
-		/* post-process verifier log to improve error descriptions */
-		fixup_verifier_log(prog, log_buf, log_buf_size);
-
-		pr_warn("prog '%s': BPF program load failed: %s\n", prog->name, errstr(errno));
-		pr_perm_msg(ret);
-
-		if (own_log_buf && log_buf && log_buf[0] != '\0') {
-			pr_warn("prog '%s': -- BEGIN PROG LOAD LOG --\n%s-- END PROG LOAD LOG --\n",
-				prog->name, log_buf);
-		}
 		goto retry_load;
 	}
 
