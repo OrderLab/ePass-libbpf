@@ -7575,6 +7575,15 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		insns_cnt = prog->insns_cnt;
 	}
 
+	struct bpf_insn *backup_insns = malloc(insns_cnt * sizeof(struct bpf_insn));
+	if (!backup_insns) {
+		pr_warn("prog '%s': failed to allocate memory for backup insns\n", prog->name);
+		return -ENOMEM;
+	}
+	memcpy(backup_insns, insns, insns_cnt * sizeof(struct bpf_insn));
+	size_t backup_insns_cnt = insns_cnt;
+	bool is_original = false;
+
 	/* Running ePass */
 	const char* enable_epass = getenv("LIBBPF_ENABLE_EPASS");
 	if (enable_epass && strcmp(enable_epass, "1") == 0) {
@@ -7616,7 +7625,7 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
 
-		load_attr.line_info_cnt = 0;
+		// load_attr.line_info_cnt = 0;
 epass_end:
 		bpf_ir_free_opts(env);
 		bpf_ir_free_env(env);
@@ -7691,6 +7700,16 @@ retry_load:
 		goto out;
 	}
 
+	if (!is_original){
+		pr_debug("Reloading using original instructions\n");
+		// Change to original insns
+		bpf_program__set_insns(prog, backup_insns, backup_insns_cnt);
+		insns = prog->insns;
+		insns_cnt = prog->insns_cnt;
+		is_original = true;
+		goto retry_load;
+	}
+
 	if (log_level == 0) {
 		log_level = 1;
 		goto retry_load;
@@ -7719,6 +7738,7 @@ retry_load:
 	}
 
 out:
+	free(backup_insns);
 	if (own_log_buf)
 		free(log_buf);
 	return ret;
