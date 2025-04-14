@@ -260,6 +260,24 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 
 	memset(&attr, 0, attr_sz);
 
+
+    const char *epass_enable = getenv("LIBBPF_EPASS_ENABLE");
+    __u8        enable_epass = 0;
+    if (epass_enable && strcmp(epass_enable, "1") == 0) {
+        enable_epass = 1;
+    }
+    const char *epass_gopt = getenv("LIBBPF_EPASS_GOPT");
+    const char *epass_popt = getenv("LIBBPF_EPASS_POPT");
+
+    attr.enable_epass = enable_epass;
+    if (enable_epass) {
+        attr.epass_gopt = ptr_to_u64(epass_gopt);
+        attr.epass_popt = ptr_to_u64(epass_popt);
+    } else {
+        attr.epass_gopt = 0;
+        attr.epass_popt = 0;
+    }
+
 	attr.prog_type = prog_type;
 	attr.expected_attach_type = OPTS_GET(opts, expected_attach_type, 0);
 

@@ -999,6 +999,8 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 	int attr_size = offsetofend(union bpf_attr, core_relo_rec_size);
 	union bpf_attr attr;
 
+	int gopt_off, popt_off;
+
 	memset(&attr, 0, attr_size);
 	/* add license string to blob of bytes */
 	license_off = add_data(gen, license, strlen(license) + 1);
@@ -1006,6 +1008,29 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 	insns_off = add_data(gen, insns, insn_cnt * sizeof(struct bpf_insn));
 	pr_debug("gen: prog_load: prog_idx %d type %d insn off %d insns_cnt %zd license off %d\n",
 		 prog_idx, prog_type, insns_off, insn_cnt, license_off);
+
+	const char *epass_enable = getenv("LIBBPF_EPASS_ENABLE");
+	__u8        enable_epass = 0;
+	if (epass_enable && strncmp(epass_enable, "1", 1) == 0) {
+		enable_epass = 1;
+	}
+	const char *epass_gopt = getenv("LIBBPF_EPASS_GOPT");
+	const char *epass_popt = getenv("LIBBPF_EPASS_POPT");
+
+	attr.epass_gopt = 0;
+	attr.epass_popt = 0;
+	gopt_off = 0;
+	popt_off = 0;
+	if (enable_epass) {
+		if (epass_gopt) {
+			gopt_off = add_data(gen, epass_gopt, strlen(epass_gopt) + 1);
+		}
+		if (epass_popt) {
+			popt_off = add_data(gen, epass_popt, strlen(epass_popt) + 1);
+		}
+	}
+
+	attr.enable_epass         = enable_epass;
 
 	/* convert blob insns to target endianness */
 	if (gen->swapped_endian) {
@@ -1059,6 +1084,15 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 
 	/* populate union bpf_attr with a pointer to instructions */
 	emit_rel_store(gen, attr_field(prog_load_attr, insns), insns_off);
+
+    if (enable_epass) {
+        if (epass_gopt){
+            emit_rel_store(gen, attr_field(prog_load_attr, epass_gopt), gopt_off);
+        }
+        if (epass_popt){
+            emit_rel_store(gen, attr_field(prog_load_attr, epass_popt), popt_off);
+        }
+    }
 
 	/* populate union bpf_attr with a pointer to func_info */
 	emit_rel_store(gen, attr_field(prog_load_attr, func_info), func_info);

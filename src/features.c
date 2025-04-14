@@ -35,6 +35,7 @@ static int probe_kern_prog_name(int token_fd)
 	attr.license = ptr_to_u64("GPL");
 	attr.insns = ptr_to_u64(insns);
 	attr.insn_cnt = (__u32)ARRAY_SIZE(insns);
+	attr.enable_epass = 0;
 	attr.prog_token_fd = token_fd;
 	if (token_fd)
 		attr.prog_flags |= BPF_F_TOKEN_FD;
