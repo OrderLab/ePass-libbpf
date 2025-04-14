@@ -1009,7 +1009,7 @@ void bpf_gen__prog_load(struct bpf_gen *gen,
 	pr_debug("gen: prog_load: prog_idx %d type %d insn off %d insns_cnt %zd license off %d\n",
 		 prog_idx, prog_type, insns_off, insn_cnt, license_off);
 
-	const char *epass_enable = getenv("LIBBPF_EPASS_ENABLE");
+	const char *epass_enable = getenv("LIBBPF_ENABLE_EPASS");
 	__u8        enable_epass = 0;
 	if (epass_enable && strncmp(epass_enable, "1", 1) == 0) {
 		enable_epass = 1;
