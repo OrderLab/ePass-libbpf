@@ -59,13 +59,13 @@
 
 extern const struct builtin_pass_cfg bpf_ir_kern_insn_counter_pass;
 extern const struct builtin_pass_cfg bpf_ir_kern_optimization_pass;
+extern const struct builtin_pass_cfg bpf_ir_kern_msan;
 
 static const struct function_pass pre_passes_def[] = {
 	DEF_FUNC_PASS(remove_trivial_phi, "remove_trivial_phi", true),
 };
 
 static struct function_pass post_passes_def[] = {
-	DEF_FUNC_PASS(bpf_ir_div_by_zero, "div_by_zero", false),
 	DEF_FUNC_PASS(msan, "msan", false),
 	DEF_FUNC_PASS(insn_counter, "insn_counter", false),
 };
@@ -7613,6 +7613,7 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		}
 		struct builtin_pass_cfg passes[] = {
 			bpf_ir_kern_insn_counter_pass,
+			bpf_ir_kern_msan,
 			bpf_ir_kern_optimization_pass
 		};
 		struct bpf_ir_opts opts = bpf_ir_default_opts();
