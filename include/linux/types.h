@@ -26,8 +26,8 @@ typedef __u64 __bitwise __be64;
 # define __aligned_u64 __u64 __attribute__((aligned(8)))
 #endif
 
-struct list_head {
-	struct list_head *next, *prev;
-};
+//struct list_head {
+//	struct list_head *next, *prev;
+//};
 
 #endif
