@@ -30,15 +30,19 @@ PKG_CONFIG ?= pkg-config
 
 TOPDIR = ..
 
-EPASS_INCLUDE := $(TOPDIR)/ePass/core/include
+# ePass is now provided by the Rust workspace under <repo>/core-rs. We link the
+# C-ABI static library it produces (libepass_ir.a) and use its C header.
+# This libbpf lives at third-party/ePass-libbpf, so the repo root is ../../..
+EPASS_RS_DIR := $(TOPDIR)/ePass/core-rs
+EPASS_INCLUDE := $(EPASS_RS_DIR)/epass-ir/include
+EPASS_RS_LIB := $(EPASS_RS_DIR)/target/release/libepass_ir.a
 INCLUDES := -I. -I$(TOPDIR)/include -I$(TOPDIR)/include/uapi -I$(EPASS_INCLUDE)
 ALL_CFLAGS := $(INCLUDES)
 
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 
-EPASS_SRCDIR := $(TOPDIR)/ePass/core
-
-EPASS_LIBDIR := $(TOPDIR)/ePass/core/build
+# Extra system libraries required by the Rust static library.
+EPASS_SYS_LIBS := -lpthread -ldl -lm
 
 CFLAGS ?= -g -O2 -Werror -Wall -std=gnu89
 ALL_CFLAGS += $(CFLAGS) 						\
@@ -110,16 +114,16 @@ UAPIDIR ?= $(PREFIX)/include
 
 TAGS_PROG := $(if $(shell which etags 2>/dev/null),etags,ctags)
 
-EPASS_OBJS = $(wildcard $(EPASS_LIBDIR)/*.o)
-
 all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
-epass_objs:
-	make -C $(EPASS_SRCDIR) buildobj
+# Build the Rust ePass C-ABI static library.
+$(EPASS_RS_LIB): force
+	$(call msg,CARGO,libepass_ir.a)
+	$(Q)cargo build --release --manifest-path $(EPASS_RS_DIR)/Cargo.toml -p epass-ir
 
-$(OBJDIR)/libbpf.a: $(STATIC_OBJS) epass_objs
+$(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_RS_LIB)
 	$(call msg,AR,$@)
-	$(Q)$(AR) rcs $@ $(STATIC_OBJS) $(EPASS_OBJS)
+	$(Q)$(AR) rcsT $@ $(STATIC_OBJS) $(EPASS_RS_LIB)
 
 $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 	$(Q)ln -sf $(^F) $@
@@ -127,11 +131,12 @@ $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION): $(OBJDIR)/libbpf.so.$(LIBBPF_VERSION)
 	$(Q)ln -sf $(^F) $@
 
-$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS) epass_objs
+$(OBJDIR)/libbpf.so.$(LIBBPF_VERSION): $(SHARED_OBJS) $(EPASS_RS_LIB)
 	$(call msg,CC,$@)
 	$(Q)$(CC) -shared -Wl,--version-script=$(VERSION_SCRIPT) \
 		  -Wl,-soname,libbpf.so.$(LIBBPF_MAJOR_VERSION) \
-		  $(SHARED_OBJS) $(EPASS_OBJS) $(ALL_LDFLAGS) -o $@
+		  $(SHARED_OBJS) -Wl,--whole-archive $(EPASS_RS_LIB) -Wl,--no-whole-archive \
+		  $(ALL_LDFLAGS) $(EPASS_SYS_LIBS) -o $@
 
 $(OBJDIR)/libbpf.pc: force | $(OBJDIR)
 	$(Q)sed -e "s|@PREFIX@|$(PREFIX)|" \
