@@ -33,7 +33,7 @@ TOPDIR = ..
 # ePass is now provided by the Rust workspace under <repo>/core-rs. We link the
 # C-ABI static library it produces (libepass_ir.a) and use its C header.
 # This libbpf lives at third-party/ePass-libbpf, so the repo root is ../../..
-EPASS_RS_DIR := $(TOPDIR)/ePass/core-rs
+EPASS_RS_DIR := $(TOPDIR)/../../core-rs
 EPASS_INCLUDE := $(EPASS_RS_DIR)/epass-ir/include
 EPASS_RS_LIB := $(EPASS_RS_DIR)/target/release/libepass_ir.a
 INCLUDES := -I. -I$(TOPDIR)/include -I$(TOPDIR)/include/uapi -I$(EPASS_INCLUDE)
