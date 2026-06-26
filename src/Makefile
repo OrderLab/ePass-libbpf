@@ -123,7 +123,10 @@ $(EPASS_RS_LIB): force
 
 $(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_RS_LIB)
 	$(call msg,AR,$@)
-	$(Q)$(AR) rcsT $@ $(STATIC_OBJS) $(EPASS_RS_LIB)
+	$(Q)rm -f $@
+	$(Q)$(AR) rcs $@ $(STATIC_OBJS)
+	$(Q)printf 'OPEN %s\nADDLIB %s\nSAVE\nEND\n' "$@" "$(EPASS_RS_LIB)" | $(AR) -M
+	$(Q)$(RANLIB) $@ 2>/dev/null || true
 
 $(OBJDIR)/libbpf.so: $(OBJDIR)/libbpf.so.$(LIBBPF_MAJOR_VERSION)
 	$(Q)ln -sf $(^F) $@
