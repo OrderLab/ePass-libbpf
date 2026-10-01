@@ -30,12 +30,13 @@ PKG_CONFIG ?= pkg-config
 
 TOPDIR = ..
 
-# ePass is now provided by the Rust workspace under <repo>/core-rs. We link the
-# C-ABI static library it produces (libepass_ir.a) and use its C header.
+# ePass v2 is provided by the Rust workspace under <repo>/core-rs. We link the
+# C-ABI static library of its epass-capi crate (libepass.a) and use the
+# epass-core header (the same ABI the kernel glue uses).
 # This libbpf lives at third-party/ePass-libbpf, so the repo root is ../../..
 EPASS_RS_DIR := $(TOPDIR)/../../core-rs
-EPASS_INCLUDE := $(EPASS_RS_DIR)/epass-ir/include
-EPASS_RS_LIB := $(EPASS_RS_DIR)/target/release/libepass_ir.a
+EPASS_INCLUDE := $(EPASS_RS_DIR)/epass-core/include
+EPASS_RS_LIB := $(EPASS_RS_DIR)/target/release/libepass.a
 INCLUDES := -I. -I$(TOPDIR)/include -I$(TOPDIR)/include/uapi -I$(EPASS_INCLUDE)
 ALL_CFLAGS := $(INCLUDES)
 
@@ -118,8 +119,8 @@ all: $(STATIC_LIBS) $(SHARED_LIBS) $(PC_FILE)
 
 # Build the Rust ePass C-ABI static library.
 $(EPASS_RS_LIB): force
-	$(call msg,CARGO,libepass_ir.a)
-	$(Q)cargo build --release --manifest-path $(EPASS_RS_DIR)/Cargo.toml -p epass-ir
+	$(call msg,CARGO,libepass.a)
+	$(Q)cargo build --release --manifest-path $(EPASS_RS_DIR)/Cargo.toml -p epass-capi
 
 $(OBJDIR)/libbpf.a: $(STATIC_OBJS) $(EPASS_RS_LIB)
 	$(call msg,AR,$@)

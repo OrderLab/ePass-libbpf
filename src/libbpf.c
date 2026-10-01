@@ -7467,6 +7467,73 @@ static int libbpf_prepare_prog_load(struct bpf_program *prog,
 
 static void fixup_verifier_log(struct bpf_program *prog, char *buf, size_t buf_sz);
 
+struct epass_rec_key {
+	__u32 off;
+	__u32 idx;
+};
+
+static int epass_rec_cmp(const void *a, const void *b)
+{
+	const struct epass_rec_key *x = a, *y = b;
+
+	if (x->off != y->off)
+		return x->off < y->off ? -1 : 1;
+	return x->idx < y->idx ? -1 : (x->idx > y->idx);
+}
+
+/* Remap the insn_off (first field) of func_info/line_info records through
+ * ePass's offset map into a fresh copy. The kernel requires strictly
+ * increasing offsets, but codegen may reorder blocks and drop
+ * instructions: sort stably by the new offset and keep the first record
+ * of each offset.
+ */
+static int epass_remap_recs(const void *recs, __u32 cnt, __u32 rec_size,
+			    const struct epass_output *out, void **res, __u32 *res_cnt)
+{
+	struct epass_rec_key *keys;
+	char *buf;
+	__u32 i, n = 0;
+
+	*res = NULL;
+	*res_cnt = 0;
+	if (!recs || !cnt)
+		return 0;
+	if (rec_size < sizeof(__u32) || !out->offsets)
+		return -EINVAL;
+	keys = calloc(cnt, sizeof(*keys));
+	buf = malloc((size_t)cnt * rec_size);
+	if (!keys || !buf) {
+		free(keys);
+		free(buf);
+		return -ENOMEM;
+	}
+	for (i = 0; i < cnt; i++) {
+		__u32 off;
+
+		memcpy(&off, (const char *)recs + (size_t)i * rec_size, sizeof(off));
+		if (off >= out->offsets_cnt || out->offsets[off] >= out->insn_cnt)
+			continue;
+		keys[n].off = out->offsets[off];
+		keys[n].idx = i;
+		n++;
+	}
+	qsort(keys, n, sizeof(*keys), epass_rec_cmp);
+	*res_cnt = 0;
+	for (i = 0; i < n; i++) {
+		char *dst = buf + (size_t)*res_cnt * rec_size;
+
+		if (i && keys[i].off == keys[i - 1].off)
+			continue;
+		memcpy(dst, (const char *)recs + (size_t)keys[i].idx * rec_size, rec_size);
+		memcpy(dst, &keys[i].off, sizeof(keys[i].off));
+		(*res_cnt)++;
+	}
+	free(keys);
+	*res = buf;
+	return 0;
+}
+
+
 static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog,
 				struct bpf_insn *insns, int insns_cnt,
 				const char *license, __u32 kern_version, int *prog_fd)
@@ -7552,8 +7619,15 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 	memcpy(backup_insns, insns, insns_cnt * sizeof(struct bpf_insn));
 	size_t backup_insns_cnt = insns_cnt;
 	bool is_original = false;
+	void *epass_func_info = NULL, *epass_line_info = NULL;
+	__u32 orig_func_info_cnt = load_attr.func_info_cnt;
+	__u32 orig_line_info_cnt = load_attr.line_info_cnt;
 
-	/* Running ePass */
+	/* Running ePass in userspace (core-rs/epass-core/include/epass.h).
+	 * LIBBPF_EPASS_GOPT / LIBBPF_EPASS_POPT carry the global and pass
+	 * options. ePass returns 0 (use its output), 1 (load the original:
+	 * ePass did not run or failed open) or a negative errno (reject).
+	 */
 	const char* enable_epass = getenv("LIBBPF_ENABLE_EPASS");
 	const char* enable_autoreload = getenv("LIBBPF_ENABLE_AUTORELOAD");
 	bool autoreload = false;
@@ -7574,37 +7648,68 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		pr_info("Running autoreload on program '%s'\n", prog->name);
 	}
 	if (enable_epass && strcmp(enable_epass, "1") == 0) {
-		pr_info("Running ePass on program '%s'\n", prog->name);
 		const char *gopt = getenv("LIBBPF_EPASS_GOPT");
-		if (gopt) {
-			pr_info("ePass gopt: %s\n", gopt);
+		const char *popt = getenv("LIBBPF_EPASS_POPT");
+		struct epass_input in = {
+			.insns = (const struct epass_insn *)insns,
+			.insn_cnt = insns_cnt,
+			.gopt = gopt,
+			.gopt_len = gopt ? strlen(gopt) : 0,
+			.popt = popt,
+			.popt_len = popt ? strlen(popt) : 0,
+			.flags = EPASS_IN_REQUESTED,
+		};
+		struct epass_output out;
+		int rc;
+
+		pr_info("Running ePass on program '%s'\n", prog->name);
+		rc = epass_compile(epass_default_host(), NULL, NULL, &in, &out);
+		if (out.log && out.log[0]) {
+			if (rc == 0)
+				pr_debug("ePass log for '%s':\n%s", prog->name, out.log);
+			else
+				pr_warn("ePass log for '%s':\n%s", prog->name, out.log);
 		}
-
-		int epass_err = 0;
-		epass_result *res = epass_run((const struct epass_insn *)insns,
-					      insns_cnt, gopt, &epass_err);
-		if (!res) {
-			pr_warn("prog '%s': ePass failed (err=%d)\n",
-				prog->name, epass_err);
-			return epass_err ? epass_err : -EINVAL;
+		if (rc < 0) {
+			pr_warn("prog '%s': ePass rejected the program: %s\n",
+				prog->name, errstr(rc));
+			epass_output_free(&out);
+			ret = rc;
+			goto out;
 		}
-
-		const char *epass_log = epass_result_log(res);
-		if (epass_log && epass_log[0]) {
-			pr_debug("ePass log for '%s':\n%s\n", prog->name,
-				 epass_log);
+		if (rc == 0 && load_attr.func_info_cnt) {
+			rc = epass_remap_recs(load_attr.func_info, load_attr.func_info_cnt,
+					      load_attr.func_info_rec_size, &out,
+					      &epass_func_info, &load_attr.func_info_cnt);
+			if (!rc)
+				load_attr.func_info = epass_func_info;
 		}
-
-		/* Copy the rewritten instructions back into the program. */
-		bpf_program__set_insns(
-			prog, (struct bpf_insn *)epass_result_insns(res),
-			epass_result_insn_cnt(res));
-		epass_result_free(res);
-
-		insns = prog->insns;
-		insns_cnt = prog->insns_cnt;
-
-		load_attr.line_info_cnt = 0;
+		if (rc == 0 && load_attr.line_info_cnt) {
+			rc = epass_remap_recs(load_attr.line_info, load_attr.line_info_cnt,
+					      load_attr.line_info_rec_size, &out,
+					      &epass_line_info, &load_attr.line_info_cnt);
+			if (!rc)
+				load_attr.line_info = epass_line_info;
+		}
+		if (rc == 0) {
+			bpf_program__set_insns(prog, (struct bpf_insn *)out.insns, out.insn_cnt);
+			insns = prog->insns;
+			insns_cnt = prog->insns_cnt;
+			pr_info("prog '%s': ePass %zu -> %zu instructions\n", prog->name,
+				(size_t)in.insn_cnt, (size_t)insns_cnt);
+		} else {
+			if (rc < 0 || out.error)
+				pr_warn("prog '%s': ePass failed (%s), loading the original program\n",
+					prog->name, errstr(rc < 0 ? rc : out.error));
+			load_attr.func_info = prog->func_info;
+			load_attr.func_info_cnt = orig_func_info_cnt;
+			load_attr.line_info = prog->line_info;
+			load_attr.line_info_cnt = orig_line_info_cnt;
+			is_original = true;
+		}
+		epass_output_free(&out);
+	} else {
+		is_original = true;
 	}
 
 	if (obj->gen_loader) {
@@ -7682,6 +7787,10 @@ retry_load:
 		bpf_program__set_insns(prog, backup_insns, backup_insns_cnt);
 		insns = prog->insns;
 		insns_cnt = prog->insns_cnt;
+		load_attr.func_info = prog->func_info;
+		load_attr.func_info_cnt = orig_func_info_cnt;
+		load_attr.line_info = prog->line_info;
+		load_attr.line_info_cnt = orig_line_info_cnt;
 		is_original = true;
 		goto retry_load;
 	}
@@ -7715,6 +7824,8 @@ retry_load:
 
 out:
 	free(backup_insns);
+	free(epass_func_info);
+	free(epass_line_info);
 	if (own_log_buf)
 		free(log_buf);
 	return ret;
@@ -8261,7 +8372,7 @@ static int kallsyms_cb(unsigned long long sym_addr, char sym_type,
 	struct bpf_object *obj = ctx;
 	const struct btf_type *t;
 	struct extern_desc *ext;
-	char *res;
+	const char *res;
 
 	res = strstr(sym_name, ".llvm.");
 	if (sym_type == 'd' && res)
@@ -11540,7 +11651,8 @@ static int avail_kallsyms_cb(unsigned long long sym_addr, char sym_type,
 		 *
 		 *   [0] fb6a421fb615 ("kallsyms: Match symbols exactly with CONFIG_LTO_CLANG")
 		 */
-		char sym_trim[256], *psym_trim = sym_trim, *sym_sfx;
+		char sym_trim[256], *psym_trim = sym_trim;
+		const char *sym_sfx;
 
 		if (!(sym_sfx = strstr(sym_name, ".llvm.")))
 			return 0;
@@ -12139,7 +12251,7 @@ static int resolve_full_path(const char *file, char *result, size_t result_sz)
 		if (!search_paths[i])
 			continue;
 		for (s = search_paths[i]; s != NULL; s = strchr(s, ':')) {
-			char *next_path;
+			const char *next_path;
 			int seg_len;
 
 			if (s[0] == ':')
