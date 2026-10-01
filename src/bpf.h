@@ -110,9 +110,18 @@ struct bpf_prog_load_opts {
 
 	/* if set, provides the length of fd_array */
 	__u32 fd_array_cnt;
+	/* ePass (kernels with CONFIG_BPF_EPASS): global and pass options
+	 * (NUL-terminated here), or an ePass IR blob submitted instead of
+	 * instructions (then insns/insn_cnt are ignored). BPF_F_EPASS in
+	 * prog_flags requests ePass without options.
+	 */
+	const char *epass_gopt;
+	const char *epass_popt;
+	const void *epass_ir;
+	__u32 epass_ir_len;
 	size_t :0;
 };
-#define bpf_prog_load_opts__last_field fd_array_cnt
+#define bpf_prog_load_opts__last_field epass_ir_len
 
 LIBBPF_API int bpf_prog_load(enum bpf_prog_type prog_type,
 			     const char *prog_name, const char *license,

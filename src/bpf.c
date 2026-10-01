@@ -238,7 +238,7 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 		  const struct bpf_insn *insns, size_t insn_cnt,
 		  struct bpf_prog_load_opts *opts)
 {
-	const size_t attr_sz = offsetofend(union bpf_attr, fd_array_cnt);
+	const size_t attr_sz = offsetofend(union bpf_attr, epass_ir_len);
 	void *finfo = NULL, *linfo = NULL;
 	const char *func_info, *line_info;
 	__u32 log_size, log_level, attach_prog_fd, attach_btf_obj_fd;
@@ -312,6 +312,28 @@ int bpf_prog_load(enum bpf_prog_type prog_type,
 
 	attr.fd_array = ptr_to_u64(OPTS_GET(opts, fd_array, NULL));
 	attr.fd_array_cnt = OPTS_GET(opts, fd_array_cnt, 0);
+
+	{
+		const char *gopt = OPTS_GET(opts, epass_gopt, NULL);
+		const char *popt = OPTS_GET(opts, epass_popt, NULL);
+		const void *ir = OPTS_GET(opts, epass_ir, NULL);
+
+		if (gopt) {
+			attr.epass_gopt = ptr_to_u64(gopt);
+			attr.epass_gopt_len = strlen(gopt);
+		}
+		if (popt) {
+			attr.epass_popt = ptr_to_u64(popt);
+			attr.epass_popt_len = strlen(popt);
+		}
+		if (ir) {
+			/* the kernel builds the instructions from the IR */
+			attr.epass_ir = ptr_to_u64(ir);
+			attr.epass_ir_len = OPTS_GET(opts, epass_ir_len, 0);
+			attr.insns = 0;
+			attr.insn_cnt = 0;
+		}
+	}
 
 	if (log_level) {
 		attr.log_buf = ptr_to_u64(log_buf);

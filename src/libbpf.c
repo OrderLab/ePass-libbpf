@@ -7647,7 +7647,18 @@ static int bpf_object_load_prog(struct bpf_object *obj, struct bpf_program *prog
 		autoreload = true;
 		pr_info("Running autoreload on program '%s'\n", prog->name);
 	}
-	if (enable_epass && strcmp(enable_epass, "1") == 0) {
+	const char *epass_kernel = getenv("LIBBPF_EPASS_KERNEL");
+	if (enable_epass && strcmp(enable_epass, "1") == 0 &&
+	    epass_kernel && strcmp(epass_kernel, "1") == 0) {
+		/* Kernel mode: the kernel runs ePass under its policy
+		 * (CONFIG_BPF_EPASS) and remaps line_info itself.
+		 */
+		load_attr.prog_flags |= BPF_F_EPASS;
+		load_attr.epass_gopt = getenv("LIBBPF_EPASS_GOPT");
+		load_attr.epass_popt = getenv("LIBBPF_EPASS_POPT");
+		pr_info("prog '%s': requesting in-kernel ePass\n", prog->name);
+		is_original = true;
+	} else if (enable_epass && strcmp(enable_epass, "1") == 0) {
 		const char *gopt = getenv("LIBBPF_EPASS_GOPT");
 		const char *popt = getenv("LIBBPF_EPASS_POPT");
 		struct epass_input in = {
